@@ -1,0 +1,24 @@
+name: Skanowanie sekretów
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  skan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pobierz kod
+        uses: actions/checkout@v4
+      - name: Konfiguruj Pythona
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Instalacja narzędzi
+        run: pip install trufflehog ggshield
+      - name: TruffleHog
+        run: trufflehog git --json .
+      - name: GitGuardian
+        env:
+          GITGUARDIAN_API_KEY: ${{ secrets.GITGUARDIAN_API_KEY }}
+        run: ggshield secret scan repo .
