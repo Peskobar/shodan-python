@@ -73,3 +73,8 @@ Documentation
 -------------
 
 Documentation is available at https://shodan.readthedocs.org/ and https://help.shodan.io
+
+Bezpieczeństwo
+--------------
+
+`Matryca ryzyka <docs/security/matryca_ryzyka.md>`_ zawiera oceny zagrożeń dla projektu. Zespół przegląda dokument co kwartał, aktualizując prawdopodobieństwo, wpływ i priorytet.
