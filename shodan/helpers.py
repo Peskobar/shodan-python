@@ -26,65 +26,86 @@ def create_facet_string(facets):
 
 def api_request(key, function, params=None, data=None, base_url='https://api.shodan.io',
                 method='get', retries=1, proxies=None):
-    """General-purpose function to create web requests to SHODAN.
+    """Ogólna funkcja do tworzenia zapytań HTTP do Shodana.
 
-    Arguments:
-        function  -- name of the function you want to execute
-        params    -- dictionary of parameters for the function
-        proxies   -- a proxies array for the requests library
+    Argumenty:
+        function  -- nazwa funkcji do wykonania
+        params    -- słownik parametrów dla funkcji
+        proxies   -- tablica proxy dla biblioteki requests
 
-    Returns
-        A dictionary containing the function's results.
+    Zwraca
+        Słownik zawierający wyniki funkcji.
 
     """
-    # Add the API key parameter automatically
+    # Automatycznie dodaj parametr klucza API
     params['key'] = key
 
-    # Send the request
-    tries = 0
-    error = False
-    while tries <= retries:
+    # Wyślij żądanie
+    proby = 0
+    blad = None
+    while proby <= retries:
         try:
             if method.lower() == 'post':
-                data = requests.post(base_url + function, json.dumps(data), params=params,
-                                     headers={'content-type': 'application/json'},
-                                     proxies=proxies)
+                odpowiedz = requests.post(
+                    base_url + function,
+                    json.dumps(data),
+                    params=params,
+                    headers={'content-type': 'application/json'},
+                    proxies=proxies,
+                    timeout=30,
+                )
             elif method.lower() == 'delete':
-                data = requests.delete(base_url + function, params=params, proxies=proxies)
+                odpowiedz = requests.delete(
+                    base_url + function,
+                    params=params,
+                    proxies=proxies,
+                    timeout=30,
+                )
             elif method.lower() == 'put':
-                data = requests.put(base_url + function, params=params, proxies=proxies)
+                odpowiedz = requests.put(
+                    base_url + function,
+                    params=params,
+                    proxies=proxies,
+                    timeout=30,
+                )
             else:
-                data = requests.get(base_url + function, params=params, proxies=proxies)
+                odpowiedz = requests.get(
+                    base_url + function,
+                    params=params,
+                    proxies=proxies,
+                    timeout=30,
+                )
 
-            # Exit out of the loop
             break
-        except Exception:
-            error = True
-            tries += 1
+        except requests.exceptions.Timeout as exc:
+            blad = f'Przekroczono limit czasu zapytania: {exc}'
+            proby += 1
+        except requests.exceptions.RequestException as exc:
+            blad = f'Błąd połączenia z Shodan: {exc}'
+            proby += 1
 
-    if error and tries >= retries:
-        raise APIError('Unable to connect to Shodan')
+    if blad and proby >= retries:
+        raise APIError(blad)
 
-    # Check that the API key wasn't rejected
-    if data.status_code == 401:
+    # Sprawdź, czy klucz API nie został odrzucony
+    if odpowiedz.status_code == 401:
         try:
-            raise APIError(data.json()['error'])
+            raise APIError(odpowiedz.json()['error'])
         except (ValueError, KeyError):
             pass
-        raise APIError('Invalid API key')
+        raise APIError('Nieprawidłowy klucz API')
 
-    # Parse the text into JSON
+    # Spróbuj sparsować odpowiedź jako JSON
     try:
-        data = data.json()
+        wynik = odpowiedz.json()
     except Exception:
-        raise APIError('Unable to parse JSON response')
+        raise APIError('Nie można zinterpretować odpowiedzi JSON')
 
-    # Raise an exception if an error occurred
-    if type(data) == dict and data.get('error', None):
-        raise APIError(data['error'])
+    # Podnieś wyjątek, jeśli serwer zwrócił błąd
+    if isinstance(wynik, dict) and wynik.get('error', None):
+        raise APIError(wynik['error'])
 
-    # Return the data
-    return data
+    return wynik
 
 
 def iterate_files(files, fast=False):

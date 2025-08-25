@@ -5,11 +5,11 @@ from .exception import APIError
 
 
 class Threatnet:
-    """Wrapper around the Threatnet REST and Streaming APIs
+    """Owijka wokół interfejsów REST i strumieniowego Threatnet
 
-    :param key: The Shodan API key that can be obtained from your account page (https://account.shodan.io)
+    :param key: Klucz API Shodana dostępny na stronie konta (https://account.shodan.io)
     :type key: str
-    :ivar stream: An instance of `shodan.Threatnet.Stream` that provides access to the Streaming API.
+    :ivar stream: Instancja `shodan.Threatnet.Stream` zapewniająca dostęp do API strumieniowego.
     """
 
     class Stream:
@@ -22,18 +22,23 @@ class Threatnet:
 
         def _create_stream(self, name):
             try:
-                req = requests.get(self.base_url + name, params={'key': self.parent.api_key},
-                                   stream=True, proxies=self.proxies)
-            except Exception:
-                raise APIError('Unable to contact the Shodan Streaming API')
-
-            if req.status_code != 200:
-                try:
-                    raise APIError(req.json()['error'])
-                except Exception:
-                    pass
-                raise APIError('Invalid API key or you do not have access to the Streaming API')
-            return req
+                odpowiedz = requests.get(
+                    self.base_url + name,
+                    params={'key': self.parent.api_key},
+                    stream=True,
+                    proxies=self.proxies,
+                    timeout=30,
+                )
+                odpowiedz.raise_for_status()
+            except requests.exceptions.Timeout as exc:
+                raise APIError(
+                    f'Przekroczono limit czasu podczas łączenia ze strumieniem Threatnet: {exc}'
+                )
+            except requests.exceptions.RequestException as exc:
+                raise APIError(
+                    f'Błąd połączenia ze strumieniem Threatnet: {exc}'
+                )
+            return odpowiedz
 
         def events(self):
             stream = self._create_stream('/threatnet/events')
@@ -57,9 +62,9 @@ class Threatnet:
                     yield banner
 
     def __init__(self, key):
-        """Initializes the API object.
+        """Inicjalizuje obiekt API.
 
-        :param key: The Shodan API key.
+        :param key: Klucz API Shodana.
         :type key: str
         """
         self.api_key = key
