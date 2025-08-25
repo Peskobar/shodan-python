@@ -1,7 +1,8 @@
-click
-colorama
-requests>=2.2.1
-XlsxWriter
-tldextract
+click>=8.1.7
+click-plugins>=1.1.1
+colorama>=0.4.6
+requests>=2.31.0
+XlsxWriter>=3.1.9
+tldextract>=5.1.2
 httpx
 uvloop; platform_system != 'Windows'
