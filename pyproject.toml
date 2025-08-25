@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shodan"
+dynamic = ["version"]
+description = "Biblioteka i narzędzie wiersza poleceń do interfejsu Shodan"
+readme = "README.rst"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [{name = "John Matherly", email = "jmath@shodan.io"}]
+dependencies = [
+    "click",
+    "colorama",
+    "requests>=2.2.1",
+    "XlsxWriter",
+    "tldextract",
+    "httpx",
+    "uvloop; platform_system != 'Windows'",
+]
+
+[project.scripts]
+shodan = "shodan.__main__:main"
+
+[tool.setuptools_scm]
+fallback_version = "0.0.0"
+version_scheme = "post-release"
+local_scheme = "no-local-version"
+
+[tool.setuptools.packages.find]
+include = ["shodan", "shodan.*"]

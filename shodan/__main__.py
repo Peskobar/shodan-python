@@ -30,6 +30,7 @@ import click
 import csv
 import os
 import os.path
+import importlib.metadata
 import pkg_resources
 import shodan
 import shodan.helpers as helpers
@@ -38,19 +39,16 @@ import requests
 import time
 import json
 
-# The file converters that are used to go from .json.gz to various other formats
+# Konwertery plików używane do przechodzenia z .json.gz do innych formatów
 from shodan.cli.converter import CsvConverter, KmlConverter, GeoJsonConverter, ExcelConverter, ImagesConverter
 
-# Constants
+# Stałe
 from shodan.cli.settings import SHODAN_CONFIG_DIR, COLORIZE_FIELDS
 
-# Helper methods
+# Metody pomocnicze
 from shodan.cli.helpers import async_spinner, get_api_key, escape_data, timestr, open_streaming_file, get_banner_field, match_filters
 from shodan.cli.host import HOST_PRINT
 
-# Allow 3rd-parties to develop custom commands
-from click_plugins import with_plugins
-from pkg_resources import iter_entry_points
 
 # Large subcommands are stored in separate modules
 from shodan.cli.alert import alert
@@ -69,19 +67,26 @@ CONVERTERS = {
     'xlsx': ExcelConverter,
 }
 
-# Define a basestring type if necessary for Python3 compatibility
+# Definicja typu basestring dla kompatybilności z Python3
 try:
     basestring
 except NameError:
     basestring = str
 
 
-# Define the main entry point for all of our commands
-# and expose a way for 3rd-party plugins to tie into the Shodan CLI.
-@with_plugins(iter_entry_points('shodan.cli.plugins'))
+# Główny punkt wejścia wszystkich komend
 @click.group(context_settings=CONTEXT_SETTINGS)
 def main():
     pass
+
+
+# Rejestracja wtyczek dostarczonych przez osoby trzecie
+def _zarejestruj_wtyczki():
+    for punkt in importlib.metadata.entry_points().select(group='shodan.cli.plugins'):
+        main.add_command(punkt.load())
+
+
+_zarejestruj_wtyczki()
 
 
 # Setup the large subcommands
