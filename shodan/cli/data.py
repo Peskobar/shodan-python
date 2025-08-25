@@ -8,33 +8,33 @@ from shodan.cli.helpers import get_api_key
 
 @click.group()
 def data():
-    """Bulk data access to Shodan"""
+    """Masowy dostęp do danych Shodan"""
     pass
 
 
 @data.command(name='list')
-@click.option('--dataset', help='See the available files in the given dataset', default=None, type=str)
+@click.option('--dataset', help='Wyświetl dostępne pliki w podanym zbiorze', default=None, type=str)
 def data_list(dataset):
-    """List available datasets or the files within those datasets."""
-    # Setup the API connection
+    """Wyświetl dostępne zbiory danych lub pliki w ich ramach."""
+    # Skonfiguruj połączenie z API
     key = get_api_key()
     api = shodan.Shodan(key)
 
     if dataset:
-        # Show the files within this dataset
+        # Wyświetl pliki w tym zbiorze
         files = api.data.list_files(dataset)
 
         for file in files:
             click.echo(click.style(u'{:20s}'.format(file['name']), fg='cyan'), nl=False)
             click.echo(click.style('{:10s}'.format(helpers.humanize_bytes(file['size'])), fg='yellow'), nl=False)
 
-            # Show the SHA1 checksum if available
+            # Wyświetl sumę SHA1, jeśli dostępna
             if file.get('sha1'):
                 click.echo(click.style('{:42s}'.format(file['sha1']), fg='green'), nl=False)
-            
+
             click.echo('{}'.format(file['url']))
     else:
-        # If no dataset was provided then show a list of all datasets
+        # Jeśli nie podano zbioru, pokaż listę wszystkich zbiorów
         datasets = api.data.list_datasets()
 
         for ds in datasets:
@@ -43,16 +43,16 @@ def data_list(dataset):
 
 
 @data.command(name='download')
-@click.option('--chunksize', help='The size of the chunks that are downloaded into memory before writing them to disk.', default=1024, type=int)
-@click.option('--filename', '-O', help='Save the file as the provided filename instead of the default.')
+@click.option('--chunksize', help='Rozmiar części pobieranych do pamięci przed zapisem na dysk.', default=1024, type=int)
+@click.option('--filename', '-O', help='Zapisz plik pod podaną nazwą zamiast domyślnej.')
 @click.argument('dataset', metavar='<dataset>')
 @click.argument('name', metavar='<file>')
 def data_download(chunksize, filename, dataset, name):
-    # Setup the API connection
+    # Skonfiguruj połączenie z API
     key = get_api_key()
     api = shodan.Shodan(key)
 
-    # Get the file object that the user requested which will contain the URL and total file size
+    # Pobierz obiekt pliku wskazany przez użytkownika, zawierający adres URL i rozmiar
     file = None
     try:
         files = api.data.list_files(dataset)
@@ -63,17 +63,21 @@ def data_download(chunksize, filename, dataset, name):
     except shodan.APIError as e:
         raise click.ClickException(e.value)
 
-    # The file isn't available
+    # Plik nie jest dostępny
     if not file:
-        raise click.ClickException('File not found')
+        raise click.ClickException('Nie znaleziono pliku')
 
-    # Start downloading the file
-    response = requests.get(file['url'], stream=True)
+    # Rozpocznij pobieranie pliku
+    try:
+        odpowiedz = requests.get(file['url'], stream=True, timeout=30)
+        odpowiedz.raise_for_status()
+    except requests.exceptions.RequestException as exc:
+        raise click.ClickException(f'Błąd pobierania: {exc}')
 
-    # Figure out the size of the file based on the headers
-    filesize = response.headers.get('content-length', None)
+    # Ustal rozmiar pliku na podstawie nagłówków
+    filesize = odpowiedz.headers.get('content-length', None)
     if not filesize:
-        # Fall back to using the filesize provided by the API
+        # Wróć do rozmiaru podanego przez API
         filesize = file['size']
     else:
         filesize = int(filesize)
@@ -81,15 +85,15 @@ def data_download(chunksize, filename, dataset, name):
     chunk_size = 1024
     limit = filesize / chunk_size
 
-    # Create a default filename based on the dataset and the filename within that dataset
+    # Utwórz domyślną nazwę pliku na podstawie datasetu i nazwy pliku w nim
     if not filename:
         filename = '{}-{}'.format(dataset, name)
 
-    # Open the output file and start writing to it in chunks
+    # Otwórz plik wyjściowy i zapisuj go w kawałkach
     with open(filename, 'wb') as fout:
-        with click.progressbar(response.iter_content(chunk_size=chunk_size), length=limit) as bar:
+        with click.progressbar(odpowiedz.iter_content(chunk_size=chunk_size), length=limit) as bar:
             for chunk in bar:
                 if chunk:
                     fout.write(chunk)
 
-    click.echo(click.style('Download completed: {}'.format(filename), 'green'))
+    click.echo(click.style('Pobieranie zakończone: {}'.format(filename), 'green'))
